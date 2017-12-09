@@ -13,7 +13,10 @@ def readFile():
             first = line.rfind('<')
             last = line.rfind(':')
             if(first!=-1):
-                tmp = {"keys" : line[0:check+1], "value" : line[first+1:last]}
+                regex = re.compile(r"(\> )+.+\)")
+                sCat = re.search(regex, line).group()
+                sCat = sCat[3:len(sCat)-1]
+                tmp = {"keys" : line[0:check+1], "value" : line[first+1:last],"catalog":sCat}
                 cutSources.append(tmp)
             fullSources.append(line)
     cutSinks = []
@@ -28,8 +31,11 @@ def readFile():
                 outdex = line.rfind(')>')
                 if index!=-1:
                     strInput = line[index+ len(line[0:check+1]):outdex]
-                tmp = {"keys" : line[0:check+1], "value" : line[first+1:last],"input":strInput.split(',')}
-                cutSinks.append(tmp)
+                    regex = re.compile(r" (\()+.+(\))")
+                    sCat = re.search(regex, line).group()
+                    sCat = sCat[2:len(sCat)-1]
+                    tmp = {"keys" : line[0:check+1], "value" : line[first+1:last],"input":strInput.split(','),"catalog":sCat}
+                    cutSinks.append(tmp)
             fullSinks.append(line)
     return cutSources, cutSinks
 
@@ -202,12 +208,10 @@ def getFlow(listCheck,listCheckSink):
                 for key in sink['keys']:
                     if key.rfind(strSource) != -1:
                         print ('///Have Flow///')
-                        print ('~source|',end="")
                         for x in source['keys']:
-                            print(x+'|',end="")
-                        print ('\n~sink|',end="")
+                            print('~source:'+source['value']['catalog']+'|'+x,end="")
                         for x in sink['keys']:
-                            print(x+'|',end="")          
+                            print('~sink:'+sink['value']['catalog']+'|'+x,end="")        
 def main():
     cutSources,cutSinks = readFile()
     listReplace,package,listImport,listFull = getReplace()
