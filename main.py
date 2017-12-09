@@ -1,6 +1,7 @@
+from __future__ import print_function
+
 import re
 import pdb
-
 def readFile():
     file1 = open("CatSources.txt","r") 
     file3 = open("CatSinks.txt","r") 
@@ -193,19 +194,20 @@ def getSourceSink(listOp,cutSources,cutSinks,listImport):
     return listCheck,listCheckSink 
 def getFlow(listCheck,listCheckSink):
     if listCheckSink == []:
-        print 'No Flow'
+        print ('No Flow')
     else:
         for source in listCheck:
             strSource = source['source']
             for sink in listCheckSink:
                 for key in sink['keys']:
                     if key.rfind(strSource) != -1:
-                        print '///Have Flow///'
+                        print ('///Have Flow///')
+                        print ('~source|',end="")
                         for x in source['keys']:
-                            print x
-                        print "---->>>"
+                            print(x+'|',end="")
+                        print ('\n~sink|',end="")
                         for x in sink['keys']:
-                            print x            
+                            print(x+'|',end="")          
 def main():
     cutSources,cutSinks = readFile()
     listReplace,package,listImport,listFull = getReplace()
