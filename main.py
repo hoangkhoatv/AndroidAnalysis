@@ -209,9 +209,9 @@ def getFlow(listCheck,listCheckSink):
                     if key.rfind(strSource) != -1:
                         print ('///Have Flow///')
                         for x in source['keys']:
-                            print('~source:'+source['value']['catalog']+'|'+x,end="")
+                            print('|'+x+'~source:'+source['value']['catalog'],end="")
                         for x in sink['keys']:
-                            print('~sink:'+sink['value']['catalog']+'|'+x,end="")        
+                            print('|'+x+'~sink:'+sink['value']['catalog'],end="")
 def main():
     cutSources,cutSinks = readFile()
     listReplace,package,listImport,listFull = getReplace()
